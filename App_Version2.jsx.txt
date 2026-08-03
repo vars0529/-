@@ -1,0 +1,644 @@
+import React, { useMemo, useState } from "react";
+import { ChevronRight, Globe2, Landmark, Shield, Sparkles, TrendingUp, Coins, Users, Telescope, BadgeInfo, ScrollText } from "lucide-react";
+
+const COUNTRY_TEMPLATES = {
+  Ottoman: {
+    name: "오스만 공화국",
+    flag: "🇹🇷",
+    ideology: "세속 공화국 · 중재자",
+    capital: "앙카라",
+    population: 145.97,
+    gdp: 3294.657,
+    treasury: 910,
+    debt: 42,
+    inflation: 2.1,
+    growth: 3.8,
+    stability: 82,
+    publicSupport: 68,
+    tech: 85,
+    military: 89,
+    softPower: 91,
+    resources: { oil: 6, gas: 7, rareEarth: 4, food: 8 },
+    relations: { USA: 74, EU: 81, China: 42, Russia: 37, Iran: 59 },
+    focus: "신 탄지마트",
+    vision: "교육과 과학을 바탕으로 한 첨단 제조 강국",
+  },
+  USA: {
+    name: "미국",
+    flag: "🇺🇸",
+    ideology: "연방 공화국 · 패권 유지",
+    capital: "워싱턴 D.C.",
+    population: 334.9,
+    gdp: 27200,
+    treasury: 2200,
+    debt: 123,
+    inflation: 2.8,
+    growth: 2.1,
+    stability: 74,
+    publicSupport: 56,
+    tech: 96,
+    military: 97,
+    softPower: 98,
+    resources: { oil: 9, gas: 8, rareEarth: 5, food: 9 },
+    relations: { Ottoman: 74, China: 28, EU: 82, Russia: 21, Japan: 88 },
+    focus: "달러 패권 유지",
+    vision: "동맹과 기술 우위를 유지하는 글로벌 리더",
+  },
+  China: {
+    name: "중국",
+    flag: "🇨🇳",
+    ideology: "일당 체제 · 제조업 강국",
+    capital: "베이징",
+    population: 1412.0,
+    gdp: 18900,
+    treasury: 3200,
+    debt: 87,
+    inflation: 0.4,
+    growth: 4.8,
+    stability: 78,
+    publicSupport: 76,
+    tech: 91,
+    military: 92,
+    softPower: 71,
+    resources: { oil: 5, gas: 5, rareEarth: 98, food: 7 },
+    relations: { Ottoman: 42, USA: 28, EU: 61, Russia: 76, India: 38 },
+    focus: "제조업 1위 유지",
+    vision: "공급망과 영향력 확대",
+  },
+  EU: {
+    name: "유럽연합",
+    flag: "🇪🇺",
+    ideology: "초국가 연합 · 규범 외교",
+    capital: "브뤼셀",
+    population: 449.0,
+    gdp: 18000,
+    treasury: 820,
+    debt: 89,
+    inflation: 2.4,
+    growth: 1.4,
+    stability: 70,
+    publicSupport: 52,
+    tech: 88,
+    military: 62,
+    softPower: 95,
+    resources: { oil: 2, gas: 3, rareEarth: 4, food: 8 },
+    relations: { Ottoman: 81, USA: 82, China: 61, Russia: 18 },
+    focus: "산업 재건",
+    vision: "그린 전환과 제조업 회복",
+  },
+  Russia: {
+    name: "러시아",
+    flag: "🇷🇺",
+    ideology: "중앙집권 국가 · 자원 강국",
+    capital: "모스크바",
+    population: 144.0,
+    gdp: 2200,
+    treasury: 520,
+    debt: 18,
+    inflation: 7.2,
+    growth: 1.0,
+    stability: 66,
+    publicSupport: 60,
+    tech: 75,
+    military: 90,
+    softPower: 55,
+    resources: { oil: 92, gas: 96, rareEarth: 8, food: 7 },
+    relations: { Ottoman: 37, USA: 21, EU: 18, China: 76 },
+    focus: "에너지 레버리지",
+    vision: "자원과 군사력 기반의 영향력 유지",
+  },
+};
+
+const COUNTRIES = Object.keys(COUNTRY_TEMPLATES);
+
+const ACTIONS = [
+  {
+    id: "ai",
+    label: "AI 투자 확대",
+    desc: "연구와 생산성은 오르지만 단기 재정 부담이 커집니다.",
+    effect: { treasury: -45, gdp: 1.4, tech: 2, stability: 1, publicSupport: 1 },
+    relation: { target: null, amount: 0 },
+  },
+  {
+    id: "defense",
+    label: "국방비 증액",
+    desc: "군사력과 억지력이 올라가지만 민생 지표가 압박받습니다.",
+    effect: { treasury: -55, military: 2, stability: -1, publicSupport: -1 },
+    relation: { target: null, amount: 0 },
+  },
+  {
+    id: "tourism",
+    label: "관광 진흥",
+    desc: "관광 수입과 소프트파워가 증가합니다.",
+    effect: { treasury: 28, gdp: 0.9, softPower: 2, publicSupport: 1 },
+    relation: { target: null, amount: 0 },
+  },
+  {
+    id: "green",
+    label: "녹지화·환경정책",
+    desc: "장기 경쟁력이 오르지만 초기에는 투자 부담이 있습니다.",
+    effect: { treasury: -30, stability: 2, softPower: 1, growth: 0.2 },
+    relation: { target: null, amount: 0 },
+  },
+  {
+    id: "diplomacy",
+    label: "중재 외교",
+    desc: "주요 국가와의 관계를 약간 개선합니다.",
+    effect: { treasury: -10, stability: 1, publicSupport: 1 },
+    relation: { target: "all", amount: 2 },
+  },
+  {
+    id: "trade",
+    label: "무역 확대",
+    desc: "단기적으로 GDP와 재정을 끌어올립니다.",
+    effect: { treasury: 40, gdp: 1.1, growth: 0.6, stability: -1 },
+    relation: { target: null, amount: 0 },
+  },
+];
+
+const MONTHLY_EVENTS = [
+  {
+    title: "루마니아가 오스만 방산업체를 선택했다",
+    type: "diplomacy",
+    summary: "프랑스가 불편한 반응을 보였지만, 오스만의 수출은 늘어납니다.",
+    effects: { treasury: 22, softPower: 1, publicSupport: 1 },
+    rel: { Ottoman: { EU: 1, France: -1 } },
+  },
+  {
+    title: "유럽 에너지 가격이 상승했다",
+    type: "economy",
+    summary: "오스만의 LNG 수출 수익이 증가합니다.",
+    effects: { treasury: 30, gdp: 0.6, growth: 0.2 },
+    rel: {},
+  },
+  {
+    title: "세계 AI 붐이 재점화됐다",
+    type: "tech",
+    summary: "연구 인프라가 좋은 국가의 성장세가 빨라집니다.",
+    effects: { gdp: 0.8, tech: 1 },
+    rel: {},
+  },
+  {
+    title: "중동 중재 회담이 시작됐다",
+    type: "diplomacy",
+    summary: "오스만이 중재국으로서 존재감을 드러냅니다.",
+    effects: { softPower: 2, publicSupport: 1, stability: 1 },
+    rel: { Ottoman: { USA: 1, EU: 1, Iran: 2 } },
+  },
+  {
+    title: "대형 태풍이 주요 항만을 스쳤다",
+    type: "disaster",
+    summary: "물류 지연이 발생했지만 피해는 제한적입니다.",
+    effects: { treasury: -18, growth: -0.3, stability: -1 },
+    rel: {},
+  },
+];
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function fmt(n, digits = 1) {
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(n);
+}
+
+function StatCard({ icon: Icon, label, value, sub }) {
+  return (
+    <div className="rounded-3xl border border-white/10 bg-white/5 p-4 shadow-lg backdrop-blur">
+      <div className="flex items-center gap-3 text-white/70">
+        <div className="rounded-2xl bg-white/10 p-2">
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="text-xs uppercase tracking-[0.25em]">{label}</div>
+      </div>
+      <div className="mt-3 text-2xl font-semibold text-white">{value}</div>
+      {sub ? <div className="mt-1 text-sm text-white/55">{sub}</div> : null}
+    </div>
+  );
+}
+
+function Progress({ label, value, max = 100, tone = "from-cyan-400 to-blue-500" }) {
+  const pct = clamp((value / max) * 100, 0, 100);
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between text-sm text-white/70">
+        <span>{label}</span>
+        <span>{fmt(value, 0)}</span>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+        <div className={`h-full rounded-full bg-gradient-to-r ${tone}`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+// safe clone helper: prefer structuredClone, fallback to JSON deep clone
+const safeClone = (obj) => {
+  try {
+    if (typeof structuredClone === "function") return structuredClone(obj);
+  } catch (e) {
+    // ignore
+  }
+  return JSON.parse(JSON.stringify(obj));
+};
+
+// pure function: apply effect to a country object and return a new object
+function applyEffectToCountryObj(c, effect) {
+  if (!c) return c;
+  return {
+    ...c,
+    treasury: +(c.treasury + (effect.treasury || 0)).toFixed(1),
+    gdp: +(c.gdp + (effect.gdp || 0)).toFixed(3),
+    tech: clamp(c.tech + (effect.tech || 0), 0, 100),
+    military: clamp(c.military + (effect.military || 0), 0, 100),
+    softPower: clamp(c.softPower + (effect.softPower || 0), 0, 100),
+    stability: clamp(c.stability + (effect.stability || 0), 0, 100),
+    publicSupport: clamp(c.publicSupport + (effect.publicSupport || 0), 0, 100),
+    growth: +(c.growth + (effect.growth || 0)).toFixed(1),
+    inflation: +(c.inflation + (effect.inflation || 0)).toFixed(1),
+    debt: +(c.debt + (effect.debt || 0)).toFixed(1),
+  };
+}
+
+export default function App() {
+  const [selectedCountry, setSelectedCountry] = useState("Ottoman");
+  const [turn, setTurn] = useState(1);
+  const [date, setDate] = useState({ year: 2026, month: 1 });
+  const [state, setState] = useState(() => {
+    const initial = Object.fromEntries(
+      COUNTRIES.map((k) => [k, safeClone(COUNTRY_TEMPLATES[k])])
+    );
+    return initial;
+  });
+  const [log, setLog] = useState([
+    {
+      title: "게임 시작",
+      body: "2026년 1월, 세계는 새로운 대전략의 무대가 됩니다.",
+      tone: "text-cyan-300",
+    },
+  ]);
+  const [activeEvent, setActiveEvent] = useState(MONTHLY_EVENTS[0]);
+  const [lastAction, setLastAction] = useState(null);
+
+  const selected = state[selectedCountry];
+  const leaderboard = useMemo(() => {
+    return Object.values(state)
+      .map((c) => ({ name: c.name, gdp: c.gdp, flag: c.flag }))
+      .sort((a, b) => b.gdp - a.gdp)
+      .slice(0, 6);
+  }, [state]);
+
+  const monthLabel = `${date.year}년 ${date.month}월`;
+
+  const doAction = (action) => {
+    const currentName = state[selectedCountry]?.name || selectedCountry;
+
+    setState((prev) => {
+      const nextState = safeClone(prev);
+      // ensure relations objects exist
+      nextState[selectedCountry] = {
+        ...(nextState[selectedCountry] || {}),
+        relations: { ...(nextState[selectedCountry]?.relations || {}) },
+      };
+      // apply effect
+      nextState[selectedCountry] = applyEffectToCountryObj(nextState[selectedCountry], action.effect);
+
+      // relations effect: target "all"
+      if (action.relation && action.relation.target === "all") {
+        const amount = action.relation.amount || 0;
+        COUNTRIES.forEach((k) => {
+          if (k === selectedCountry) return;
+          nextState[k] = { ...(nextState[k] || {}), relations: { ...(nextState[k]?.relations || {}) } };
+          nextState[k].relations[selectedCountry] = clamp((nextState[k].relations[selectedCountry] ?? 50) + amount, 0, 100);
+          nextState[selectedCountry].relations[k] = clamp((nextState[selectedCountry].relations[k] ?? 50) + amount, 0, 100);
+        });
+      }
+
+      return nextState;
+    });
+
+    setLastAction(action.label);
+    setLog((prev) => [
+      {
+        title: `${currentName} — ${action.label}`,
+        body: action.desc,
+        tone: "text-emerald-300",
+      },
+      ...prev,
+    ].slice(0, 12));
+  };
+
+  const nextMonth = () => {
+    const chosen = MONTHLY_EVENTS[(turn - 1) % MONTHLY_EVENTS.length];
+    setActiveEvent(chosen);
+
+    // capture current label for logging (before we advance the date)
+    const currentMonthLabel = `${date.year}년 ${date.month}월`;
+
+    setState((prev) => {
+      const nextState = safeClone(prev);
+
+      // Global drift
+      COUNTRIES.forEach((k) => {
+        const c = nextState[k];
+        if (!c) return;
+        const baseGrowth = c.growth;
+        c.gdp = +(c.gdp + baseGrowth * 0.08 + (c.tech - 70) * 0.003 + (c.softPower - 70) * 0.002).toFixed(3);
+        c.treasury = +(c.treasury + baseGrowth * 0.7 - c.debt * 0.03).toFixed(1);
+        c.stability = clamp(c.stability + (c.publicSupport - 60) * 0.02, 0, 100);
+        c.publicSupport = clamp(c.publicSupport + (c.stability - 75) * 0.01, 0, 100);
+        c.inflation = +(clamp(c.inflation + (Math.random() - 0.5) * 0.3, 0, 15).toFixed(1));
+        c.debt = +(clamp(c.debt + (c.growth < 2 ? 0.2 : -0.1), 0, 200).toFixed(1));
+        c.relations = Object.fromEntries(
+          Object.entries(c.relations || {}).map(([rk, rv]) => [rk, clamp(rv + (Math.random() > 0.7 ? 1 : 0), 0, 100)])
+        );
+      });
+
+      // Apply active event primarily to selected country
+      const sc = nextState[selectedCountry];
+      if (sc) {
+        sc.treasury = +(sc.treasury + (chosen.effects.treasury || 0)).toFixed(1);
+        sc.gdp = +(sc.gdp + (chosen.effects.gdp || 0)).toFixed(3);
+        sc.tech = clamp(sc.tech + (chosen.effects.tech || 0), 0, 100);
+        sc.softPower = clamp(sc.softPower + (chosen.effects.softPower || 0), 0, 100);
+        sc.stability = clamp(sc.stability + (chosen.effects.stability || 0), 0, 100);
+        sc.publicSupport = clamp(sc.publicSupport + (chosen.effects.publicSupport || 0), 0, 100);
+        sc.growth = +(sc.growth + (chosen.effects.growth || 0)).toFixed(1);
+      }
+
+      // Special relation drift (event-specific)
+      if (chosen.rel && chosen.rel.Ottoman) {
+        Object.entries(chosen.rel.Ottoman).forEach(([a, b]) => {
+          if (selectedCountry === "Ottoman") {
+            const scRel = nextState[selectedCountry].relations || {};
+            scRel[a] = clamp((scRel[a] || 50) + (b || 0), 0, 100);
+            nextState[selectedCountry].relations = scRel;
+          }
+        });
+      }
+
+      return nextState;
+    });
+
+    setTurn((t) => t + 1);
+    setDate((d) => ({ year: d.month === 12 ? d.year + 1 : d.year, month: d.month === 12 ? 1 : d.month + 1 }));
+    setLog((prev) => [
+      {
+        title: `${currentMonthLabel} — ${chosen.title}`,
+        body: chosen.summary,
+        tone: "text-amber-300",
+      },
+      ...prev,
+    ].slice(0, 12));
+  };
+
+  const sel = selected;
+
+  return (
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(20,184,166,0.25),_transparent_32%),linear-gradient(180deg,#07111f_0%,#0b1020_100%)] text-white">
+      <div className="mx-auto flex min-h-screen max-w-7xl flex-col gap-6 p-4 md:p-6">
+        <header className="rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs tracking-[0.25em] text-cyan-200 uppercase">
+                <Globe2 className="h-3.5 w-3.5" /> Grand Strategy: Modern World
+              </div>
+              <h1 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">2026년 현대 세계 대전략 시뮬레이터</h1>
+              <p className="mt-2 max-w-3xl text-sm text-white/65 md:text-base">
+                국가, 기업, 연구, 외교, 문화, 법률이 서로 맞물리는 살아있는 세계를 운영합니다. 플레이어는 국가를 직접 조작하는 신이 아니라, 헌법과 국회, 국민과 국제사회의 제약 속에서 국가를 이끄는 지도자입니다.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <div className="rounded-2xl bg-black/20 px-4 py-3">
+                <div className="text-xs text-white/50">현재 시점</div>
+                <div className="mt-1 text-lg font-semibold">{monthLabel}</div>
+              </div>
+              <div className="rounded-2xl bg-black/20 px-4 py-3">
+                <div className="text-xs text-white/50">선택 국가</div>
+                <div className="mt-1 text-lg font-semibold">{sel.flag} {sel.name}</div>
+              </div>
+              <div className="rounded-2xl bg-black/20 px-4 py-3">
+                <div className="text-xs text-white/50">비전</div>
+                <div className="mt-1 text-lg font-semibold">{sel.focus}</div>
+              </div>
+              <div className="rounded-2xl bg-black/20 px-4 py-3">
+                <div className="text-xs text-white/50">턴</div>
+                <div className="mt-1 text-lg font-semibold">{turn}</div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main className="grid flex-1 gap-6 xl:grid-cols-[1.25fr_0.9fr]">
+          <section className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <StatCard icon={TrendingUp} label="GDP" value={`$${fmt(sel.gdp, 1)}B`} sub="명목 GDP" />
+              <StatCard icon={Users} label="인구" value={`${fmt(sel.population, 2)}M`} sub="단위: 백만 명" />
+              <StatCard icon={Coins} label="금고" value={`$${fmt(sel.treasury, 0)}B`} sub="국가 재정 여력" />
+              <StatCard icon={Shield} label="군사력" value={`${sel.military}/100`} sub="현대전 종합 전력" />
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+              <div className="rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-xs uppercase tracking-[0.25em] text-white/45">국가 선택</div>
+                    <h2 className="mt-1 text-2xl font-bold">플레이 가능한 국가</h2>
+                  </div>
+                  <div className="rounded-full bg-black/20 px-3 py-1 text-xs text-white/60">추가 가능: 전 세계 190+ 국가</div>
+                </div>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  {COUNTRIES.map((k) => {
+                    const c = state[k];
+                    const active = selectedCountry === k;
+                    return (
+                      <button
+                        key={k}
+                        onClick={() => setSelectedCountry(k)}
+                        className={`rounded-3xl border p-4 text-left transition ${
+                          active
+                            ? "border-cyan-400/60 bg-cyan-400/10 shadow-lg"
+                            : "border-white/10 bg-black/15 hover:bg-white/8"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-2xl">{c.flag}</div>
+                            <div className="mt-2 text-lg font-semibold">{c.name}</div>
+                            <div className="mt-1 text-sm text-white/60">{c.capital}</div>
+                          </div>
+                          <ChevronRight className={`mt-1 h-5 w-5 ${active ? "text-cyan-300" : "text-white/30"}`} />
+                        </div>
+                        <div className="mt-4 grid grid-cols-3 gap-2 text-xs text-white/70">
+                          <div className="rounded-2xl bg-white/5 px-3 py-2">GDP<br /><span className="text-white">${fmt(c.gdp, 1)}B</span></div>
+                          <div className="rounded-2xl bg-white/5 px-3 py-2">기술<br /><span className="text-white">{c.tech}</span></div>
+                          <div className="rounded-2xl bg-white/5 px-3 py-2">안정도<br /><span className="text-white">{c.stability}</span></div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur">
+                <div className="flex items-center gap-2 text-white/70">
+                  <Landmark className="h-4 w-4" />
+                  <div className="text-xs uppercase tracking-[0.25em]">국가 프로필</div>
+                </div>
+                <div className="mt-3 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-2xl font-bold">{sel.flag} {sel.name}</h3>
+                    <p className="mt-1 text-sm text-white/60">{sel.ideology}</p>
+                  </div>
+                  <div className="rounded-2xl bg-black/20 px-3 py-2 text-right text-xs text-white/60">
+                    <div>{sel.capital}</div>
+                    <div className="mt-1 text-white">현재 지도자 체제</div>
+                  </div>
+                </div>
+
+                <div className="mt-5 space-y-4">
+                  <Progress label="안정도" value={sel.stability} tone="from-emerald-400 to-teal-500" />
+                  <Progress label="국민 지지" value={sel.publicSupport} tone="from-cyan-400 to-sky-500" />
+                  <Progress label="기술력" value={sel.tech} tone="from-violet-400 to-fuchsia-500" />
+                  <Progress label="소프트파워" value={sel.softPower} tone="from-amber-300 to-orange-500" />
+                </div>
+
+                <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
+                  <div className="rounded-2xl bg-black/20 p-3">
+                    <div className="text-white/50">부채비율</div>
+                    <div className="mt-1 text-xl font-semibold">{fmt(sel.debt, 0)}%</div>
+                  </div>
+                  <div className="rounded-2xl bg-black/20 p-3">
+                    <div className="text-white/50">물가상승률</div>
+                    <div className="mt-1 text-xl font-semibold">{fmt(sel.inflation, 1)}%</div>
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-3xl border border-white/10 bg-black/20 p-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-white/70">
+                    <Sparkles className="h-4 w-4 text-cyan-300" /> 현재 국면
+                  </div>
+                  <p className="mt-2 text-sm text-white/60">{sel.vision}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.25em] text-white/45">국가 전략</div>
+                  <h2 className="mt-1 text-2xl font-bold">이번 턴 행동</h2>
+                </div>
+                <div className="text-sm text-white/55">실행 후 다음 달로 진행하세요.</div>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {ACTIONS.map((action) => (
+                  <button
+                    key={action.id}
+                    onClick={() => doAction(action)}
+                    className="group rounded-3xl border border-white/10 bg-black/15 p-4 text-left transition hover:-translate-y-0.5 hover:bg-white/8"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="font-semibold">{action.label}</div>
+                      <ChevronRight className="h-4 w-4 text-white/30 transition group-hover:text-cyan-300" />
+                    </div>
+                    <p className="mt-2 text-sm text-white/60">{action.desc}</p>
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <button
+                  onClick={nextMonth}
+                  className="rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 font-semibold text-white shadow-lg shadow-cyan-500/20 transition hover:scale-[1.01]"
+                >
+                  다음 달 진행
+                </button>
+                {lastAction ? <div className="text-sm text-white/60">최근 행동: <span className="text-white">{lastAction}</span></div> : null}
+              </div>
+            </div>
+          </section>
+
+          <aside className="space-y-6">
+            <div className="rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur">
+              <div className="flex items-center gap-2 text-white/70">
+                <BadgeInfo className="h-4 w-4" />
+                <div className="text-xs uppercase tracking-[0.25em]">월간 세계 뉴스</div>
+              </div>
+              <div className="mt-4 rounded-3xl border border-amber-400/20 bg-amber-400/10 p-4">
+                <div className="text-sm text-amber-200">{activeEvent.type.toUpperCase()}</div>
+                <div className="mt-1 text-lg font-semibold">{activeEvent.title}</div>
+                <p className="mt-2 text-sm text-white/65">{activeEvent.summary}</p>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-2xl bg-black/20 p-3"><div className="text-white/45">재정 영향</div><div className="mt-1 font-semibold">{activeEvent.effects.treasury ? `${activeEvent.effects.treasury > 0 ? "+" : ""}${activeEvent.effects.treasury}B` : "0"}</div></div>
+                <div className="rounded-2xl bg-black/20 p-3"><div className="text-white/45">GDP 영향</div><div className="mt-1 font-semibold">{activeEvent.effects.gdp ? `${activeEvent.effects.gdp > 0 ? "+" : ""}${activeEvent.effects.gdp}B` : "0"}</div></div>
+              </div>
+            </div>
+
+            <div className="rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur">
+              <div className="flex items-center gap-2 text-white/70">
+                <ScrollText className="h-4 w-4" />
+                <div className="text-xs uppercase tracking-[0.25em]">세계 순위표</div>
+              </div>
+              <div className="mt-4 space-y-3">
+                {leaderboard.map((row, idx) => (
+                  <div key={row.name} className="flex items-center justify-between rounded-2xl bg-black/20 px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-sm font-bold">{idx + 1}</div>
+                      <div>
+                        <div className="font-semibold">{row.flag} {row.name}</div>
+                        <div className="text-xs text-white/45">경제 규모</div>
+                      </div>
+                    </div>
+                    <div className="font-mono text-sm text-cyan-200">${fmt(row.gdp, 1)}B</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur">
+              <div className="flex items-center gap-2 text-white/70">
+                <Telescope className="h-4 w-4" />
+                <div className="text-xs uppercase tracking-[0.25em]">관계</div>
+              </div>
+              <div className="mt-4 space-y-3">
+                {Object.entries(sel.relations).map(([name, value]) => (
+                  <div key={name}>
+                    <div className="mb-1 flex items-center justify-between text-sm text-white/70">
+                      <span>{name}</span>
+                      <span>{value}</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                      <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-cyan-500" style={{ width: `${value}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[2rem] border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur">
+              <div className="flex items-center gap-2 text-white/70">
+                <Globe2 className="h-4 w-4" />
+                <div className="text-xs uppercase tracking-[0.25em]">국가 기록</div>
+              </div>
+              <div className="mt-4 space-y-3">
+                {log.map((entry, idx) => (
+                  <div key={idx} className="rounded-2xl bg-black/20 p-3">
+                    <div className={`text-sm font-semibold ${entry.tone}`}>{entry.title}</div>
+                    <div className="mt-1 text-sm text-white/60">{entry.body}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </aside>
+        </main>
+      </div>
+    </div>
+  );
+}
